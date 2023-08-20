@@ -1,13 +1,18 @@
 package org.example;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import groovy.util.logging.Log;
 import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 
+import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 public class ReqresApiTests {
@@ -15,6 +20,12 @@ public class ReqresApiTests {
     private static final String BASE_URI = "https://reqres.in/api";
     private static final String USERS_ENDPOINT = "/users";
     private static final String LOGIN_ENDPOINT = "/login";
+
+    public static final RequestSpecification MAIN_SPEC = new RequestSpecBuilder()
+        .setAccept("application/json")
+        .setBaseUri(BASE_URI)
+        .addFilters(List.of(new RequestLoggingFilter()))
+        .build();
 
     @BeforeAll
     public static void setup() {
@@ -26,6 +37,7 @@ public class ReqresApiTests {
     public void testGetList() {
         List<User> users = RestAssured
             .given()
+            .spec(MAIN_SPEC)
             .get(USERS_ENDPOINT)
             .then()
             .contentType(ContentType.JSON)
@@ -138,45 +150,19 @@ public class ReqresApiTests {
     }
 
     @Test
-    public void testLoginSuccessful() {
-        class LoginRequest {
-            private String email;
-            private String password;
-
-            LoginRequest() {}
-
-            public LoginRequest(String email, String password) {
-                this.email = email;
-                this.password = password;
-            }
-
-
-            public String getPassword() {
-                return password;
-            }
-
-            public void setPassword(String password) {
-                this.password = password;
-            }
-
-            public String getEmail() {
-                return email;
-            }
-
-            public void setEmail(String email) {
-                this.email = email;
-            }
-        }
-        // Створення об'єкту для логіну
-        LoginRequest loginRequest = new LoginRequest("eve.holt@reqres.in", "cityslicka");
+    public void testLoginSuccessful() throws IOException {
+        File file = new File("src/test/java/org/example/credentials.json");
+        LoginRequest credentials = new ObjectMapper().readValue(file, LoginRequest.class);
 
         Response response = RestAssured
             .given()
+            .spec(MAIN_SPEC)
             .contentType(ContentType.JSON)
-            .body(loginRequest)
+            .body(credentials)
             .when()
             .post(LOGIN_ENDPOINT)
             .then()
+            .log().all()
             .statusCode(200)
             .contentType(ContentType.JSON)
             .extract()
@@ -188,8 +174,30 @@ public class ReqresApiTests {
 }
 
 class LoginRequest {
-    private String username;
+    private String email;
     private String password;
 
-    // Конструктори, геттери, сеттери та інші методи
+    public LoginRequest() {}
+
+    public LoginRequest(String email, String password) {
+        this.email = email;
+        this.password = password;
+    }
+
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
 }
